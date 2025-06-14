@@ -1,6 +1,5 @@
-// index.js (최종 디버깅 - 일반 텍스트 비밀번호 비교 버전)
+// index.js (이름 + 이메일로 로그인하는 버전)
 
-// ▼▼▼▼▼ 어떤 에러든 잡아내는 코드 (파일 최상단에 추가) ▼▼▼▼▼
 process.on('uncaughtException', (error, origin) => {
     console.log('----- An uncaught exception occurred -----');
     console.log(error);
@@ -12,24 +11,21 @@ process.on('unhandledRejection', (reason, promise) => {
     console.log(reason);
     console.log('Unhandled Rejection at:', promise);
 });
-// ▲▲▲▲▲ 어떤 에러든 잡아내는 코드 ▲▲▲▲▲
 
 const express = require('express');
-// const bcrypt = require('bcryptjs'); // bcrypt를 완전히 제거!
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 require('dotenv').config();
 
-// ▼▼▼▼▼ 비밀번호를 일반 텍스트로 저장 ▼▼▼▼▼
+// ▼▼▼▼▼ 더미 유저 데이터 (이름+이메일 조합) ▼▼▼▼▼
 const dummyUsers = [
     {
         id: 1,
-        user_id: 'testuser',
-        password: 'password123', // password_hash가 아닌 password
-        name: '테스트유저'
+        name: '테스트유저',
+        email: 'testuser@example.com'
     }
 ];
-// ▲▲▲▲▲ 비밀번호를 일반 텍스트로 저장 ▲▲▲▲▲
+// ▲▲▲▲▲ 더미 유저 데이터 ▲▲▲▲▲
 
 const app = express();
 app.use(express.json());
@@ -39,32 +35,27 @@ app.post('/login', async (req, res) => {
     console.log("--- New Login Request Received ---");
     console.log("Request Body:", req.body);
     try {
-        const { userId, password } = req.body;
-        console.log("Extracted Data -> userId:", userId, ", password:", password);
-        
-        if (!userId || !password) {
-            return res.status(400).json({ message: '아이디와 비밀번호를 모두 입력해주세요.' });
+        // 프론트엔드에서 "이름" → name, "이메일" → email로 전달
+        const { name, email } = req.body;
+        console.log("Extracted Data -> name:", name, ", email:", email);
+
+        // 입력값 체크
+        if (!name || !email) {
+            return res.status(400).json({ message: '이름과 이메일을 모두 입력해주세요.' });
         }
-        
-        const user = dummyUsers.find(u => u.user_id === userId);
+
+        // 이름과 이메일이 모두 일치하는 유저 검색
+        const user = dummyUsers.find(u => u.name === name && u.email === email);
         console.log("User search result:", user);
 
         if (!user) {
-            return res.status(401).json({ message: 'DEBUG-MESSAGE-USER-NOT-FOUND' });
+            return res.status(401).json({ message: '해당 이름 또는 이메일이 일치하지 않습니다.' });
         }
 
-        // ▼▼▼▼▼ 비밀번호를 일반 텍스트로 비교 ▼▼▼▼▼
-        const isPasswordMatch = (password === user.password);
-        console.log("Password match result:", isPasswordMatch);
-        // ▲▲▲▲▲ 비밀번호를 일반 텍스트로 비교 ▲▲▲▲▲
-
-        if (!isPasswordMatch) {
-            return res.status(401).json({ message: 'DEBUG-MESSAGE-PASSWORD-FAIL' });
-        }
-
+        // JWT 발급
         console.log("Login successful! Generating token...");
         const token = jwt.sign(
-            { id: user.id, userId: user.user_id },
+            { id: user.id, name: user.name, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
